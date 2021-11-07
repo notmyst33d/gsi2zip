@@ -259,6 +259,13 @@ async def index(req):
 async def cors_options(req):
     return web.Response(headers=cors)
 
+async def chmod_hack():
+    loop = asyncio.get_running_loop()
+    await async_call(loop, "chmod 755 simg/simg2img")
+    await async_call(loop, "chmod 755 simg/img2simg")
+
+asyncio.run(chmod_hack())
+
 app = web.Application()
 app.add_routes(routes)
 web.run_app(app, port=os.environ.get("PORT", 8080))
