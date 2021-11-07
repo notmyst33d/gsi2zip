@@ -125,7 +125,7 @@ async def process_gsi(gsi_dir, gsi_file, gsi_format, gsi_arch, request_uuid):
 
     shutil.rmtree(f"{gsi_dir}/template")
 
-    for x in range(0, 20):
+    for x in range(0, 900):
         if state[request_uuid]["downloaded"]:
             break
 
