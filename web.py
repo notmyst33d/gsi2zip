@@ -9,6 +9,11 @@ formats = {
     "gz": "gzip compressed data"
 }
 
+nested_formats = {
+    "sparse": "Android sparse image",
+    "raw": "Linux rev 1.0 ext2 filesystem data"
+}
+
 state = {}
 
 cors = {
@@ -59,6 +64,114 @@ async def process_gsi(gsi_dir, gsi_file, gsi_format, gsi_arch, request_uuid):
 
         state[request_uuid]["log"] += f"Deleting unsparsed GSI\n"
         os.remove(f"{gsi_dir}/{gsi_file}.raw")
+    elif gsi_format == "xz":
+        state[request_uuid]["log"] += f"GSI is compressed using xz, uncompressing\n"
+        p = await async_Popen(loop, ["unxz", "-T", "0", f"{gsi_dir}/{gsi_file}"])
+        await async_communicate(loop, p)
+
+        if p.returncode != 0:
+            state[request_uuid]["log"] += f"xz returned {p.returncode}\n"
+            state[request_uuid]["error"] = True
+            shutil.rmtree(gsi_dir)
+            await asyncio.sleep(3)
+            return
+
+        gsi_file = gsi_file.replace(".xz", "")
+        gsi_format = None
+
+        p = await async_Popen(loop, ["file", f"{gsi_dir}/{gsi_file}"])
+        stdout, stderr = await async_communicate(loop, p)
+        stdout = stdout.decode()
+
+        if p.returncode != 0:
+            state[request_uuid]["log"] += f"file returned {p.returncode}\n"
+            state[request_uuid]["error"] = True
+            shutil.rmtree(gsi_dir)
+            await asyncio.sleep(3)
+            return
+
+        for k, v in nested_formats.items():
+            if v in stdout:
+                gsi_format = k
+
+        if not gsi_format:
+            state[request_uuid]["log"] += f"Unsupported nested format?\n"
+            state[request_uuid]["error"] = True
+            shutil.rmtree(gsi_dir)
+            await asyncio.sleep(3)
+            return
+
+        if gsi_format == "sparse":
+            state[request_uuid]["log"] += f"GSI already in sparse format\n"
+        elif gsi_format == "raw":
+            state[request_uuid]["log"] += f"GSI is in raw format, converting to sparse format\n"
+            shutil.move(f"{gsi_dir}/{gsi_file}", f"{gsi_dir}/{gsi_file}.raw")
+            p = await async_Popen(loop, ["./simg/img2simg", f"{gsi_dir}/{gsi_file}.raw", f"{gsi_dir}/{gsi_file}"])
+            await async_communicate(loop, p)
+
+            if p.returncode != 0:
+                state[request_uuid]["log"] += f"img2simg returned {p.return_code}\n"
+                state[request_uuid]["error"] = True
+                shutil.rmtree(gsi_dir)
+                await asyncio.sleep(3)
+                return
+
+            state[request_uuid]["log"] += f"Deleting unsparsed GSI\n"
+            os.remove(f"{gsi_dir}/{gsi_file}.raw")
+    elif gsi_format == "gz":
+        state[request_uuid]["log"] += f"GSI is compressed using gz, uncompressing\n"
+        p = await async_Popen(loop, ["gunzip", f"{gsi_dir}/{gsi_file}"])
+        await async_communicate(loop, p)
+
+        if p.returncode != 0:
+            state[request_uuid]["log"] += f"gunzip returned {p.returncode}\n"
+            state[request_uuid]["error"] = True
+            shutil.rmtree(gsi_dir)
+            await asyncio.sleep(3)
+            return
+
+        gsi_file = gsi_file.replace(".gz", "")
+        gsi_format = None
+
+        p = await async_Popen(loop, ["file", f"{gsi_dir}/{gsi_file}"])
+        stdout, stderr = await async_communicate(loop, p)
+        stdout = stdout.decode()
+
+        if p.returncode != 0:
+            state[request_uuid]["log"] += f"file returned {p.returncode}\n"
+            state[request_uuid]["error"] = True
+            shutil.rmtree(gsi_dir)
+            await asyncio.sleep(3)
+            return
+
+        for k, v in nested_formats.items():
+            if v in stdout:
+                gsi_format = k
+
+        if not gsi_format:
+            state[request_uuid]["log"] += f"Unsupported nested format?\n"
+            state[request_uuid]["error"] = True
+            shutil.rmtree(gsi_dir)
+            await asyncio.sleep(3)
+            return
+
+        if gsi_format == "sparse":
+            state[request_uuid]["log"] += f"GSI already in sparse format\n"
+        elif gsi_format == "raw":
+            state[request_uuid]["log"] += f"GSI is in raw format, converting to sparse format\n"
+            shutil.move(f"{gsi_dir}/{gsi_file}", f"{gsi_dir}/{gsi_file}.raw")
+            p = await async_Popen(loop, ["./simg/img2simg", f"{gsi_dir}/{gsi_file}.raw", f"{gsi_dir}/{gsi_file}"])
+            await async_communicate(loop, p)
+
+            if p.returncode != 0:
+                state[request_uuid]["log"] += f"img2simg returned {p.return_code}\n"
+                state[request_uuid]["error"] = True
+                shutil.rmtree(gsi_dir)
+                await asyncio.sleep(3)
+                return
+
+            state[request_uuid]["log"] += f"Deleting unsparsed GSI\n"
+            os.remove(f"{gsi_dir}/{gsi_file}.raw")
     else:
         state[request_uuid]["log"] += f"Unsupported format?\n"
         state[request_uuid]["error"] = True
@@ -104,6 +217,13 @@ async def process_gsi(gsi_dir, gsi_file, gsi_format, gsi_arch, request_uuid):
     p = await async_Popen(loop, ["python3", "img2sdat/img2sdat.py", "-v", "4", "-o", f"{gsi_dir}/template", f"{gsi_dir}/template/system.img"])
     await async_communicate(loop, p)
 
+    if p.returncode != 0:
+        state[request_uuid]["log"] += f"img2sdat returned {p.returncode}\n"
+        state[request_uuid]["error"] = True
+        shutil.rmtree(gsi_dir)
+        await asyncio.sleep(3)
+        return
+
     state[request_uuid]["log"] += f"Deleting sparsed GSI\n"
     os.remove(f"{gsi_dir}/template/system.img")
 
@@ -111,9 +231,23 @@ async def process_gsi(gsi_dir, gsi_file, gsi_format, gsi_arch, request_uuid):
     p = await async_Popen(loop, ["brotli", "-j1", f"{gsi_dir}/template/system.new.dat"])
     await async_communicate(loop, p)
 
+    if p.returncode != 0:
+        state[request_uuid]["log"] += f"brotli returned {p.returncode}\n"
+        state[request_uuid]["error"] = True
+        shutil.rmtree(gsi_dir)
+        await asyncio.sleep(3)
+        return
+
     # TODO: Do something about this hack
     state[request_uuid]["log"] += f"Creating a ZIP archive (might take a while)\n"
-    await async_call(loop, f"cd {gsi_dir}/template && zip -r0 ../{gsi_file.replace('.img', '.zip')} *")
+    ret = await async_call(loop, f"cd {gsi_dir}/template && zip -r0 ../{gsi_file.replace('.img', '.zip')} *")
+
+    if ret != 0:
+        state[request_uuid]["log"] += f"zip returned {p.returncode}\n"
+        state[request_uuid]["error"] = True
+        shutil.rmtree(gsi_dir)
+        await asyncio.sleep(3)
+        return
 
     state[request_uuid]["log"] += f"Finished request {request_uuid}\n"
     state[request_uuid]["log"] += "Link will be expired after 15 minutes\n"
@@ -229,7 +363,7 @@ async def identify(req):
                     size += len(chunk)
                     f.write(chunk)
 
-    p = await async_Popen(loop, ["file", f"{temp_dir}/{field.filename}"], stdout=PIPE)
+    p = await async_Popen(loop, ["file", f"{temp_dir}/{field.filename}"])
     stdout, stderr = await async_communicate(loop, p)
     stdout = stdout.decode()
 
