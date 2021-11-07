@@ -73,7 +73,7 @@ async def process_gsi(gsi_dir, gsi_file, gsi_format, gsi_arch, request_uuid):
     await async_communicate(loop, p)
 
     if p.returncode != 0:
-        state[request_uuid]["log"] += f"simg2img returned {p.return_code}\n"
+        state[request_uuid]["log"] += f"simg2img returned {p.returncode}\n"
         state[request_uuid]["error"] = True
         shutil.rmtree(gsi_dir)
         await asyncio.sleep(3)
@@ -123,7 +123,7 @@ async def process_gsi(gsi_dir, gsi_file, gsi_format, gsi_arch, request_uuid):
     state[request_uuid]["download_from"] = f"{gsi_dir}/{gsi_file.replace('.img', '.zip')}"
     state[request_uuid]["zip_name"] = gsi_file.replace('.img', '.zip')
 
-    for x in range(0, 15):
+    for x in range(0, 900):
         if state[request_uuid]["downloaded"]:
             break
 
