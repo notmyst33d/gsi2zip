@@ -38,7 +38,7 @@ async def process_gsi(gsi_dir, gsi_file, gsi_format, gsi_arch, request_uuid):
     state[request_uuid]["error"] = False
     state[request_uuid]["log"] = ""
     state[request_uuid]["log"] += f"Received request {request_uuid}\n"
-    state[request_uuid]["log"] += f"Received arguments: {gsi_dir}, {gsi_file}, {gsi_format}, {request_uuid}\n"
+    state[request_uuid]["log"] += f"Received arguments: {gsi_dir}, {gsi_file}, {gsi_format}, {gsi_arch}, {request_uuid}\n"
 
     shutil.copytree(f"template_{gsi_arch}", f"{gsi_dir}/template")
 
