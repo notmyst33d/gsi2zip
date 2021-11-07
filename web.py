@@ -47,7 +47,7 @@ async def process_gsi(gsi_dir, gsi_file, gsi_format, gsi_arch, request_uuid):
     elif gsi_format == "raw":
         state[request_uuid]["log"] += f"GSI is in raw format, converting to sparse format\n"
         shutil.move(f"{gsi_dir}/{gsi_file}", f"{gsi_dir}/{gsi_file}.raw")
-        p = await async_Popen(loop, ["img2simg", f"{gsi_dir}/{gsi_file}.raw", f"{gsi_dir}/{gsi_file}"])
+        p = await async_Popen(loop, ["./simg/img2simg", f"{gsi_dir}/{gsi_file}.raw", f"{gsi_dir}/{gsi_file}"])
         await async_communicate(loop, p)
 
         if p.returncode != 0:
@@ -69,7 +69,7 @@ async def process_gsi(gsi_dir, gsi_file, gsi_format, gsi_arch, request_uuid):
     shutil.move(f"{gsi_dir}/{gsi_file}", f"{gsi_dir}/template/system.img")
 
     state[request_uuid]["log"] += f"Unsparsing the GSI\n"
-    p = await async_Popen(loop, ["simg2img", f"{gsi_dir}/template/system.img", f"{gsi_dir}/template/system.img.raw"])
+    p = await async_Popen(loop, ["./simg/simg2img", f"{gsi_dir}/template/system.img", f"{gsi_dir}/template/system.img.raw"])
     await async_communicate(loop, p)
 
     if p.returncode != 0:
@@ -123,7 +123,9 @@ async def process_gsi(gsi_dir, gsi_file, gsi_format, gsi_arch, request_uuid):
     state[request_uuid]["download_from"] = f"{gsi_dir}/{gsi_file.replace('.img', '.zip')}"
     state[request_uuid]["zip_name"] = gsi_file.replace('.img', '.zip')
 
-    for x in range(0, 900):
+    shutil.rmtree(f"{gsi_dir}/template")
+
+    for x in range(0, 20):
         if state[request_uuid]["downloaded"]:
             break
 
