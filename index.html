@@ -1,0 +1,128 @@
+<html>
+    <head>
+        <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+        <script src="https://cdn.filesizejs.com/filesize.min.js"></script>
+        <title>gsi2zip</title>
+    </head>
+    <body>
+        <script>
+            let sleep = (ms) => new Promise(r => setTimeout(r, ms))
+
+            function log(msg) {
+                console.log(`gsi2zip: ${msg}`)
+                document.getElementById("log").innerHTML += `${msg}\n`
+                document.getElementById("log").scrollTop = document.getElementById("log").scrollHeight
+            }
+
+            let formats = {
+                "sparse": "Android sparse image",
+                "raw": "Linux rev 1.0 ext2 filesystem data",
+                "xz": "XZ compressed data",
+                "gz": "gzip compressed data"
+            }
+
+            function upload() {
+                (async () => {
+                    document.getElementById("log").innerHTML = ""
+
+                    log("Starting to upload GSI")
+
+                    let gsi = document.getElementById("gsi")
+                    if(!gsi.files[0]) {
+                        log("File not selected")
+                        return
+                    }
+
+                    gsi = gsi.files[0]
+
+                    log("Identifying the file format")
+                    header = gsi.slice(0, 65535) // 64 KB of data should be enough to identify a file
+
+                    let identificationData  = new FormData()
+                    identificationData.append("file", header)
+
+                    let identification = (await axios({
+                        method: "POST",
+                        url: "/identify",
+                        headers: { "Content-Type": "multipart/form-data" },
+                        data: identificationData
+                    })).data
+
+                    let format = null
+
+                    for(key in formats) {
+                        if(identification.includes(formats[key])) {
+                            format = key
+                        }
+                    }
+
+                    if(!format) {
+                        log(`Unknown format: ${identification}`)
+                        return
+                    }
+
+                    log(`File identified as ${format}`)
+
+                    let uploadData  = new FormData()
+                    uploadData.append("gsi", gsi, gsi.name)
+                    uploadData.append("format", format)
+                    uploadData.append("arch", document.getElementById("arch").value)
+
+                    log("Uploading GSI")
+                    let upload_id = (await axios({
+                        method: "POST",
+                        url: "/upload",
+                        headers: { "Content-Type": "multipart/form-data" },
+                        data: uploadData,
+                        onUploadProgress: (p) => {
+                            log(`Uploaded ${filesize(p.loaded)}/${filesize(p.total)}`)
+                        }
+                    })).data
+
+                    log("GSI successfully uploaded")
+
+                    log("Polling updates")
+
+                    let old_update = ""
+                    let update_index = 0
+                    while(true) {
+                        let update = (await axios.get(`/progress?id=${upload_id}`)).data
+
+                        let diff = update.log.replace(old_update.log, "")
+                        if(!diff && update_index == 0) {
+                            diff = update.log
+                        }
+
+                        if(diff) {
+                            log(diff)
+                        }
+
+                        if(update.finished) {
+                            log(`Download: ${window.location.origin}/download?id=${upload_id}`)
+                            break
+                        }
+
+                        if(update.error) {
+                            log("An error occured while processing the GSI, send logs to @myst33d")
+                            break
+                        }
+
+                        update_index += 1
+                        old_update = update
+
+                        await sleep(1000)
+                    }
+                })()
+            }
+        </script>
+        Arch:
+        <select id="arch">
+            <option value="arm64">ARM64</option>
+        </select><br>
+        <input type="file" id="gsi"><br>
+        <button onclick="upload()">Upload</button><br><br>
+
+        Log:<br>
+        <textarea style="width: 75%; height: 75%" id="log" readonly></textarea>
+    </body>
+</html>

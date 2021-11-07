@@ -1,0 +1,14 @@
+ui_print("           _ ____      _       ");
+ui_print("  __ _ ___(_)___ \ ___(_)_ __  ");
+ui_print(" / _` / __| | __) |_  / | '_ \ ");
+ui_print("| (_| \__ \ |/ __/ / /| | |_) |");
+ui_print(" \__, |___/_|_____/___|_| .__/ ");
+ui_print(" |___/                  |_|    ");
+
+ui_print("Target: [gsi_file]");
+
+assert(update_dynamic_partitions(package_extract_file("dynamic_partitions_op_list")));
+
+ui_print("Patching system image unconditionally...");
+block_image_update(map_partition("system"), package_extract_file("system.transfer.list"), "system.new.dat.br", "system.patch.dat") ||
+  abort("E1001: Failed to update system image.");
