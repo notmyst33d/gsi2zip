@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import os, uuid, tempfile, shutil, asyncio, functools
 from aiohttp import web
 from subprocess import Popen, PIPE, call
