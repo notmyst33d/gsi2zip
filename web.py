@@ -400,7 +400,8 @@ async def chmod_hack():
     await async_call(loop, "chmod 755 simg/img2simg")
 
 asyncio.run(chmod_hack())
-
+loop = asyncio.new_event_loop()
+asyncio.set_event_loop(loop)
 app = web.Application()
 app.add_routes(routes)
 web.run_app(app, port=os.environ.get("PORT", 8080))

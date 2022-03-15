@@ -1,9 +1,9 @@
-FROM alpine:3.14
-# android-tools includes simg2img and img2simg
-RUN apk update
-RUN apk add zip android-tools brotli python3 py3-aiohttp file
+FROM debian:bullseye-slim
 
-RUN adduser -D -H gsitozip gsitozip
+RUN apt update && \
+    apt install zip brotli python3 python3-aiohttp file xz-utils -y
+
+RUN useradd -m -s /bin/sh gsitozip
 
 WORKDIR /usr/src/gsi2zip
 COPY --chown=gsitozip:gsitozip . .
